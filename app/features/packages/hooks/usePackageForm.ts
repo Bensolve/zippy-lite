@@ -1,30 +1,27 @@
 import { useState, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-
-type PackageStatus = 'Pending' | 'In Transit' | 'Delivered';
-
-export type PackageFormData = {
-  sender: string;
-  receiver: string;
-  status: PackageStatus;
-};
-
-type PackageFormErrors = {
-  sender?: string;
-  receiver?: string;
-  status?: string;
-};
+import { PackageFormData, PackageFormErrors, PackageType, PackageStatus } from '@/app/types/package';
+import { PackageStorageService } from '@/app/services/packageStorage';
 
 const initialFormData: PackageFormData = {
-  sender: '',
-  receiver: '',
+  senderName: '',
+  senderPhone: '',
+  receiverName: '',
+  receiverPhone: '',
+  pickupLocation: '',
+  deliveryLocation: '',
+  packageType: 'Parcel',
   status: 'Pending',
 };
 
 // Regular expression for valid name format (letters, spaces, periods, and hyphens)
 const validNameRegex = /^[A-Za-z\s.-]+$/;
+// Phone number regex (supports various formats)
+const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
 // Maximum length for names
 const MAX_NAME_LENGTH = 50;
+// Maximum length for locations
+const MAX_LOCATION_LENGTH = 100;
 
 export function usePackageForm() {
   const router = useRouter();
@@ -37,27 +34,69 @@ export function usePackageForm() {
     const newErrors: PackageFormErrors = {};
     let isValid = true;
 
-    // Validate sender
-    if (!formData.sender.trim()) {
-      newErrors.sender = 'Sender is required';
+    // Validate sender name
+    if (!formData.senderName.trim()) {
+      newErrors.senderName = 'Sender name is required';
       isValid = false;
-    } else if (!validNameRegex.test(formData.sender)) {
-      newErrors.sender = 'Sender name can only contain letters, spaces, periods, and hyphens';
+    } else if (!validNameRegex.test(formData.senderName)) {
+      newErrors.senderName = 'Sender name can only contain letters, spaces, periods, and hyphens';
       isValid = false;
-    } else if (formData.sender.length > MAX_NAME_LENGTH) {
-      newErrors.sender = `Sender name must be ${MAX_NAME_LENGTH} characters or less`;
+    } else if (formData.senderName.length > MAX_NAME_LENGTH) {
+      newErrors.senderName = `Sender name must be ${MAX_NAME_LENGTH} characters or less`;
       isValid = false;
     }
 
-    // Validate receiver
-    if (!formData.receiver.trim()) {
-      newErrors.receiver = 'Receiver is required';
+    // Validate sender phone
+    if (!formData.senderPhone.trim()) {
+      newErrors.senderPhone = 'Sender phone is required';
       isValid = false;
-    } else if (!validNameRegex.test(formData.receiver)) {
-      newErrors.receiver = 'Receiver name can only contain letters, spaces, periods, and hyphens';
+    } else if (!phoneRegex.test(formData.senderPhone.replace(/\s/g, ''))) {
+      newErrors.senderPhone = 'Please enter a valid phone number';
       isValid = false;
-    } else if (formData.receiver.length > MAX_NAME_LENGTH) {
-      newErrors.receiver = `Receiver name must be ${MAX_NAME_LENGTH} characters or less`;
+    }
+
+    // Validate receiver name
+    if (!formData.receiverName.trim()) {
+      newErrors.receiverName = 'Receiver name is required';
+      isValid = false;
+    } else if (!validNameRegex.test(formData.receiverName)) {
+      newErrors.receiverName = 'Receiver name can only contain letters, spaces, periods, and hyphens';
+      isValid = false;
+    } else if (formData.receiverName.length > MAX_NAME_LENGTH) {
+      newErrors.receiverName = `Receiver name must be ${MAX_NAME_LENGTH} characters or less`;
+      isValid = false;
+    }
+
+    // Validate receiver phone
+    if (!formData.receiverPhone.trim()) {
+      newErrors.receiverPhone = 'Receiver phone is required';
+      isValid = false;
+    } else if (!phoneRegex.test(formData.receiverPhone.replace(/\s/g, ''))) {
+      newErrors.receiverPhone = 'Please enter a valid phone number';
+      isValid = false;
+    }
+
+    // Validate pickup location
+    if (!formData.pickupLocation.trim()) {
+      newErrors.pickupLocation = 'Pickup location is required';
+      isValid = false;
+    } else if (formData.pickupLocation.length > MAX_LOCATION_LENGTH) {
+      newErrors.pickupLocation = `Pickup location must be ${MAX_LOCATION_LENGTH} characters or less`;
+      isValid = false;
+    }
+
+    // Validate delivery location
+    if (!formData.deliveryLocation.trim()) {
+      newErrors.deliveryLocation = 'Delivery location is required';
+      isValid = false;
+    } else if (formData.deliveryLocation.length > MAX_LOCATION_LENGTH) {
+      newErrors.deliveryLocation = `Delivery location must be ${MAX_LOCATION_LENGTH} characters or less`;
+      isValid = false;
+    }
+
+    // Validate package type
+    if (!formData.packageType) {
+      newErrors.packageType = 'Package type is required';
       isValid = false;
     }
 
@@ -103,20 +142,8 @@ export function usePackageForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/packages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create package');
-      }
-
-      const data = await response.json();
+      // Use localStorage service instead of API for now
+      const newPackage = await PackageStorageService.createPackage(formData);
       
       // Reset form after successful submission
       resetForm();
